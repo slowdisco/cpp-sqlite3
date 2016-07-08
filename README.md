@@ -1,13 +1,24 @@
 # cpp-sqlite3
+
+
 //初始化sqlite3_delegate对象，模板类型为数据库表每列的数据类型
+
     sqlite_tool::sqlite3_delegate<sqlite_tool::integer, sqlite_tool::real, sqlite_tool::char_string, sqlite_tool::data_string> sq_delegate;
+    
     //设置数据库文件路径
+    
     sq_delegate.set_db_file_path(std::string("your db file path"));
+    
     //设置数据库表(table)名称
+    
     sq_delegate.set_table_name(std::string("your table name"));
+    
     //设置表中每一列(column)的名称
+    
     sq_delegate.set_column_names(std::string("int_col"), std::string("real_col"), std::string("text_col"), std::string("blob_col"));
+    
     //创建表
+    
     sq_delegate.create_table_if_not_exists();
     
     //通过表中列的序号(column index)插入数据
