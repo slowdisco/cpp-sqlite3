@@ -2,7 +2,7 @@
 
 使用c++对sqlite3的简单封装。
 
-    //初始化sqlite3_delegate对象，模板类型为数据库表每列的数据类型
+    //初始化sqlite3_delegate对象，模板参数为数据库表每列的数据类型(column type)
 
     sqlite_tool::sqlite3_delegate<sqlite_tool::integer, sqlite_tool::real, sqlite_tool::char_string, sqlite_tool::data_string> sq_delegate;
     
