@@ -482,7 +482,7 @@ namespace sqlite_tool {
         template<std::size_t index>
         void
         add_column_constraint(std::string constraint) {
-            std::swap(column_constraints.at(index), constraint);
+//            std::swap(column_constraints.at(index), constraint);
             column_constraints.at(index).append(" ");
             column_constraints.at(index).append(constraint);
         }
@@ -519,7 +519,6 @@ namespace sqlite_tool {
                 }
             }
             sqlcmd.append(")");
-            std::cout << "sqlcmd = " << sqlcmd << std::endl;
             
             if (sqdb == nullptr) {
                 SQLITE_API int SQLITE_STDCALL open_err = open_db();
@@ -586,10 +585,35 @@ namespace sqlite_tool {
             insert_command_prepare_value(sqlcmd, std::forward<ST>(second), std::forward<RT>(rest)...);
         }
         
+    private:
+        template<typename T>
+        std::pair<std::string, T>
+        bind_column_index_transfer_to_name(const std::pair<size_t, T> &pair) {
+            return std::make_pair(columns.at(pair.first), pair.second);
+        }
+        
+        template<typename T>
+        std::pair<std::string, T>
+        bind_column_index_transfer_to_name(const std::pair<std::string, T> &pair) {
+            return pair;
+        }
+        
+        template<typename T>
+        std::pair<size_t, T>
+        bind_column_index_transfer(const std::pair<size_t, T> &pair, size_t &index) {
+            return std::make_pair(index++, pair.second);
+        }
+        
+        template<typename T>
+        std::pair<size_t, T>
+        bind_column_index_transfer(const std::pair<std::string, T> &pair, size_t &index) {
+            return std::make_pair(index++, pair.second);
+        }
+        
     public:
         template<typename COLTP, typename...VALTP>
         SQLITE_API int SQLITE_STDCALL
-        put_row(std::pair<COLTP, VALTP>...p) {
+        put_row(std::pair<COLTP, VALTP>...pair) {
             size_t parameters = sizeof...(VALTP);
             if (parameters > std::tuple_size<full_tuple_type>::value) {
                 return SQLITE_ERROR;
@@ -598,9 +622,9 @@ namespace sqlite_tool {
             std::string sqlcmd("INSERT INTO ");
             sqlcmd.append(table);
             sqlcmd.append("(");
-            insert_command_prepare_name(sqlcmd, std::forward<std::pair<COLTP, VALTP>>(p)...);
+            insert_command_prepare_name(sqlcmd, std::forward<std::pair<COLTP, VALTP>>(pair)...);
             sqlcmd.append(") VALUES(");
-            insert_command_prepare_value(sqlcmd, std::forward<std::pair<COLTP, VALTP>>(p)...);
+            insert_command_prepare_value(sqlcmd, std::forward<std::pair<COLTP, VALTP>>(pair)...);
             sqlcmd.append(")");
             
             if (sqdb == nullptr) {
@@ -616,7 +640,7 @@ namespace sqlite_tool {
                 return prep_err;
             }
             
-            SQLITE_API int SQLITE_STDCALL bind_err = bind_utility::bind_value(stmt, std::forward<std::pair<COLTP, VALTP>>(p)...);
+            SQLITE_API int SQLITE_STDCALL bind_err = bind_utility::bind_value(stmt, std::forward<std::pair<std::string, VALTP>>(bind_column_index_transfer_to_name(pair))...);
             if (bind_err != SQLITE_OK) {
                 sqlite3_clear_bindings(stmt);
                 sqlite3_finalize(stmt);
@@ -858,6 +882,82 @@ namespace sqlite_tool {
         set_conditions_match_any(T0 condition, TN...condn) {
             execute_conditions.clear();
             append_delete_condition_or(execute_conditions, std::forward<T0>(condition), std::forward<TN>(condn)...);
+        }
+        
+    private:
+        template<typename T>
+        void
+        update_prepare_name_value(std::string &sqlcmd, const std::pair<size_t, T> &pair) {
+            const std::string &column_name = columns.at(pair.first);
+            sqlcmd.append(column_name);
+            sqlcmd.append("=$");
+            sqlcmd.append(column_name);
+        }
+        
+        template<typename FT, typename ST, typename...RT>
+        void
+        update_prepare_name_value(std::string &sqlcmd, const std::pair<size_t, FT> &first, const std::pair<size_t, ST> &second, const std::pair<size_t, RT> &...rest) {
+            update_prepare_name_value(std::forward<std::string &>(sqlcmd), std::forward<const std::pair<size_t, FT>>(first));
+            sqlcmd.append(",");
+            update_prepare_name_value(std::forward<std::string &>(sqlcmd), std::forward<const std::pair<size_t, ST>>(second), std::forward<const std::pair<size_t, RT>>(rest)...);
+        }
+        
+        template<typename T>
+        void
+        update_prepare_name_value(std::string &sqlcmd, const std::pair<std::string, T> &pair) {
+            const std::string &column_name = pair.first;
+            sqlcmd.append(column_name);
+            sqlcmd.append("=$");
+            sqlcmd.append(column_name);
+        }
+        
+        template<typename FT, typename ST, typename...RT>
+        void
+        update_prepare_name_value(std::string &sqlcmd, const std::pair<std::string, FT> &first, const std::pair<std::string, ST> &second, const std::pair<std::string, RT> &...rest) {
+            update_prepare_name_value(std::forward<std::string &>(sqlcmd), std::forward<const std::pair<std::string, FT>>(first));
+            sqlcmd.append(",");
+            update_prepare_name_value(std::forward<std::string &>(sqlcmd), std::forward<const std::pair<std::string, ST>>(second), std::forward<std::pair<std::string, RT>>(rest)...);
+        }
+        
+    public:
+        template<typename COLTP, typename...VALTP>
+        SQLITE_API int SQLITE_STDCALL
+        update_column_value_match_conditions(std::pair<COLTP, VALTP>...pair) {
+            std::string sqlcmd("UPDATE ");
+            sqlcmd.append(table);
+            sqlcmd.append(" SET ");
+            update_prepare_name_value(sqlcmd, std::forward<std::pair<COLTP, VALTP>>(pair)...);
+            sqlcmd.append(" WHERE ");
+            sqlcmd.append(execute_conditions);
+            
+            if (sqdb == nullptr) {
+                SQLITE_API int SQLITE_STDCALL open_err = open_db();
+                if (open_err != SQLITE_OK) {
+                    return open_err;
+                }
+            }
+            
+            sqlite3_stmt *stmt = nullptr;
+            SQLITE_API int SQLITE_STDCALL prep_err = sqlite3_prepare_v2(sqdb, sqlcmd.c_str(), int(sqlcmd.size()), &stmt, NULL);
+            if (prep_err != SQLITE_OK) {
+                return prep_err;
+            }
+            
+            SQLITE_API int SQLITE_STDCALL bind_err = bind_utility::bind_value(stmt, std::forward<std::pair<std::string, VALTP>>(bind_column_index_transfer_to_name(pair))...);
+            if (bind_err != SQLITE_OK) {
+                sqlite3_clear_bindings(stmt);
+                sqlite3_finalize(stmt);
+                return bind_err;
+            }
+            
+            SQLITE_API int SQLITE_STDCALL step_err = sqlite3_step(stmt);
+            sqlite3_clear_bindings(stmt);
+            sqlite3_finalize(stmt);
+            if (step_err != SQLITE_DONE) {
+                return step_err;
+            }
+            
+            return SQLITE_OK;
         }
     };
 }
