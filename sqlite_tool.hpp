@@ -234,7 +234,7 @@ namespace sqlite_tool {
             std::string parameter_name("$");
             parameter_name.append(column_value_pair.first);
             SQLITE_API int SQLITE_STDCALL index = sqlite3_bind_parameter_index(stmt, parameter_name.c_str());
-            SQLITE_API int SQLITE_STDCALL bind_err = sqlite3_bind_text(stmt, index, column_value_pair.second.c_str(), int(column_value_pair.second.size()), SQLITE_STATIC);
+            SQLITE_API int SQLITE_STDCALL bind_err = sqlite3_bind_text(stmt, index, column_value_pair.second.c_str(), int(column_value_pair.second.size()), SQLITE_TRANSIENT);
             return bind_err;
         }
         
@@ -243,7 +243,7 @@ namespace sqlite_tool {
             std::string parameter_name("$");
             parameter_name.append(column_value_pair.first);
             SQLITE_API int SQLITE_STDCALL index = sqlite3_bind_parameter_index(stmt, parameter_name.c_str());
-            SQLITE_API int SQLITE_STDCALL bind_err = sqlite3_bind_blob(stmt, index, column_value_pair.second.data(), int(column_value_pair.second.size()), SQLITE_STATIC);
+            SQLITE_API int SQLITE_STDCALL bind_err = sqlite3_bind_blob(stmt, index, column_value_pair.second.data(), int(column_value_pair.second.size()), SQLITE_TRANSIENT);
             return bind_err;
         }
         
@@ -283,13 +283,13 @@ namespace sqlite_tool {
         
         SQLITE_API int SQLITE_STDCALL 
         static bind_value(sqlite3_stmt *stmt, const std::pair<size_t, char_string> &column_value_pair) {
-            SQLITE_API int SQLITE_STDCALL bind_err = sqlite3_bind_text(stmt, int(column_value_pair.first) + 1, column_value_pair.second.c_str(), int(column_value_pair.second.size()), SQLITE_STATIC);
+            SQLITE_API int SQLITE_STDCALL bind_err = sqlite3_bind_text(stmt, int(column_value_pair.first) + 1, column_value_pair.second.c_str(), int(column_value_pair.second.size()), SQLITE_TRANSIENT);
             return bind_err;
         }
         
         SQLITE_API int SQLITE_STDCALL 
         static bind_value(sqlite3_stmt *stmt, const std::pair<size_t, data_string> &column_value_pair) {
-            SQLITE_API int SQLITE_STDCALL bind_err = sqlite3_bind_blob(stmt, int(column_value_pair.first) + 1, column_value_pair.second.data(), int(column_value_pair.second.size()), SQLITE_STATIC);
+            SQLITE_API int SQLITE_STDCALL bind_err = sqlite3_bind_blob(stmt, int(column_value_pair.first) + 1, column_value_pair.second.data(), int(column_value_pair.second.size()), SQLITE_TRANSIENT);
             return bind_err;
         }
         
@@ -624,7 +624,8 @@ namespace sqlite_tool {
             sqlcmd.append("(");
             insert_command_prepare_name(sqlcmd, std::forward<std::pair<COLTP, VALTP>>(pair)...);
             sqlcmd.append(") VALUES(");
-            insert_command_prepare_value(sqlcmd, std::forward<std::pair<COLTP, VALTP>>(pair)...);
+            //insert_command_prepare_value(sqlcmd, std::forward<std::pair<COLTP, VALTP>>(pair)...);
+            insert_command_prepare_value(sqlcmd, bind_column_index_transfer_to_name(pair)...);
             sqlcmd.append(")");
             
             if (sqdb == nullptr) {
