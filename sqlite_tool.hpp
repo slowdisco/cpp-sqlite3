@@ -1,25 +1,40 @@
-//
-//  sqlite_tool.hpp
-//  SQLiteWork2
-//
-//  Created by yosemite on 16/5/27.
-//  Copyright © 2016年 organization. All rights reserved.
-//
+
 
 #ifndef sqlite_tool_hpp
 #define sqlite_tool_hpp
 
 #include <stdio.h>
 #include <stdarg.h>
-#include <sqlite3.h>
-#include <unistd.h>
-
 #include <iostream>
 #include <vector>
 #include <deque>
 #include <tuple>
 #include <utility>
 
+#if defined(_WIN32) || defined(_WIN64)
+#include <io.h>
+#define SQLXX_FILE_ACCESS _access
+#define SQLXX_FILE_ENOENT (-1)//(ENOENT)
+#define SQLXX_FILE_CREATE(path, mode) \
+FILE *file;\
+fopen_s(&file, path, mode);\
+if (file != nullptr)\
+{\
+	fclose(file);\
+}
+#else
+#include <unistd.h>
+#define SQLXX_FILE_ACCESS access
+#define SQLXX_FILE_ENOENT (-1)
+#define SQLXX_FILE_CREATE(path, mode) \
+FILE *file = fopen(path, mode);\
+if (file != nullptr)\
+{\
+	fclose(file);\
+}
+#endif // _WIN64
+
+#include "sqlite3.h"
 
 namespace sqlite_tool {
     typedef std::string char_string;
@@ -313,71 +328,56 @@ namespace sqlite_tool {
     using Col_Nms_Type = std::vector<std::string>;
     using Col_Tps_Type = std::vector<std::string>;
     using Db_Row_Type = std::vector<sqlite3_row::column_info>;
-    //对于大多数编译器来说，类成员函数不支持特化！那么我们来特化类吧。
-    template<typename T>
-    class column_constraint_utility {
-    public:
-        void
-        static push_column_constraint(Col_Tps_Type &column_constraints, Db_Row_Type &db_row, size_t &column_count, size_t &db_row_size) {
-            throw;
-        }
-    };
-    //特化integer
+    
+	template<typename T>
+	void
+	make_column_constraint(Col_Tps_Type& column_constraints, Db_Row_Type& db_row, size_t& column_count, size_t& db_row_size) {
+		throw;
+	}
+    //integer
     template<>
-    class column_constraint_utility<typename sqlite_tool::integer> {
-    public:
-        void
-        static push_column_constraint(Col_Tps_Type &column_constraints, Db_Row_Type &db_row, size_t &column_count, size_t &db_row_size) {
-            column_constraints.emplace_back(std::string("INTEGER DEFAULT 0"));
-            const std::type_info &col_tp = typeid(sqlite_tool::integer);
-            auto &&col_tuple = sqlite3_row::column_info(db_row_size, sizeof(sqlite_tool::integer), column_count, col_tp);
-            db_row.emplace_back(std::move(col_tuple));
-            db_row_size += sizeof(sqlite_tool::integer);
-            column_count++;
-        }
-    };
-    //特化real
+    void
+	make_column_constraint<typename sqlite_tool::integer>(Col_Tps_Type& column_constraints, Db_Row_Type& db_row, size_t& column_count, size_t& db_row_size) {
+		column_constraints.emplace_back(std::string("INTEGER DEFAULT 0"));
+		const std::type_info& col_tp = typeid(sqlite_tool::integer);
+		auto&& col_tuple = sqlite3_row::column_info(db_row_size, sizeof(sqlite_tool::integer), column_count, col_tp);
+		db_row.emplace_back(std::move(col_tuple));
+		db_row_size += sizeof(sqlite_tool::integer);
+		column_count++;
+	}
+    //real
     template<>
-    class column_constraint_utility<typename sqlite_tool::real> {
-    public:
-        void
-        static push_column_constraint(Col_Tps_Type &column_constraints, Db_Row_Type &db_row, size_t &column_count, size_t &db_row_size) {
-            column_constraints.emplace_back(std::string("REAL DEFAULT 0.0"));
-            const std::type_info &col_tp = typeid(sqlite_tool::real);
-            auto &&col_tuple = sqlite3_row::column_info(db_row_size, sizeof(sqlite_tool::real), column_count, col_tp);
-            db_row.emplace_back(std::move(col_tuple));
-            db_row_size += sizeof(sqlite_tool::real);
-            column_count++;
-        }
-    };
-    //特化char_string
+    void
+	make_column_constraint<typename sqlite_tool::real>(Col_Tps_Type& column_constraints, Db_Row_Type& db_row, size_t& column_count, size_t& db_row_size) {
+		column_constraints.emplace_back(std::string("REAL DEFAULT 0.0"));
+		const std::type_info& col_tp = typeid(sqlite_tool::real);
+		auto&& col_tuple = sqlite3_row::column_info(db_row_size, sizeof(sqlite_tool::real), column_count, col_tp);
+		db_row.emplace_back(std::move(col_tuple));
+		db_row_size += sizeof(sqlite_tool::real);
+		column_count++;
+	}
+    //char_string
     template<>
-    class column_constraint_utility<typename sqlite_tool::char_string> {
-    public:
-        void
-        static push_column_constraint(Col_Tps_Type &column_constraints, Db_Row_Type &db_row, size_t &column_count, size_t &db_row_size) {
-            column_constraints.emplace_back(std::string("TEXT DEFAULT \"\""));
-            const std::type_info &col_tp = typeid(sqlite_tool::char_string);
-            auto &&col_tuple = sqlite3_row::column_info(db_row_size, sizeof(sqlite_tool::char_string), column_count, col_tp);
-            db_row.emplace_back(std::move(col_tuple));
-            db_row_size += sizeof(sqlite_tool::char_string);
-            column_count++;
-        }
-    };
-    //特化data_string
+    void
+	make_column_constraint<typename sqlite_tool::char_string>(Col_Tps_Type& column_constraints, Db_Row_Type& db_row, size_t& column_count, size_t& db_row_size) {
+		column_constraints.emplace_back(std::string("TEXT DEFAULT \"\""));
+		const std::type_info& col_tp = typeid(sqlite_tool::char_string);
+		auto&& col_tuple = sqlite3_row::column_info(db_row_size, sizeof(sqlite_tool::char_string), column_count, col_tp);
+		db_row.emplace_back(std::move(col_tuple));
+		db_row_size += sizeof(sqlite_tool::char_string);
+		column_count++;
+	}
+    //data_string
     template<>
-    class column_constraint_utility<typename sqlite_tool::data_string> {
-    public:
-        void
-        static push_column_constraint(Col_Tps_Type &column_constraints, Db_Row_Type &db_row, size_t &column_count, size_t &db_row_size) {
-            column_constraints.emplace_back(std::string("BLOB NOT NULL"));
-            const std::type_info &col_tp = typeid(sqlite_tool::data_string);
-            auto &&col_tuple = sqlite3_row::column_info(db_row_size, sizeof(sqlite_tool::data_string), column_count, col_tp);
-            db_row.emplace_back(std::move(col_tuple));
-            db_row_size += sizeof(sqlite_tool::data_string);
-            column_count++;
-        }
-    };
+    void
+	make_column_constraint<typename sqlite_tool::data_string>(Col_Tps_Type& column_constraints, Db_Row_Type& db_row, size_t& column_count, size_t& db_row_size) {
+		column_constraints.emplace_back(std::string("BLOB NOT NULL"));
+		const std::type_info& col_tp = typeid(sqlite_tool::data_string);
+		auto&& col_tuple = sqlite3_row::column_info(db_row_size, sizeof(sqlite_tool::data_string), column_count, col_tp);
+		db_row.emplace_back(std::move(col_tuple));
+		db_row_size += sizeof(sqlite_tool::data_string);
+		column_count++;
+	}
     
     template<typename...COLUMN_TYPE>
     class sqlite3_delegate {        
@@ -415,7 +415,7 @@ namespace sqlite_tool {
         template<typename T>
         void
         init_column_constraints() {
-            column_constraint_utility<T>::push_column_constraint(column_constraints, db_row, column_count, db_row_size);
+			make_column_constraint<T>(column_constraints, db_row, column_count, db_row_size);
         }
         
         template<typename T1, typename T2, typename...Tn>
@@ -495,14 +495,15 @@ namespace sqlite_tool {
 
         SQLITE_API int SQLITE_STDCALL 
         open_db() {
-            return sqlite3_open_v2(db_file.c_str(), &sqdb, SQLITE_OPEN_READWRITE, NULL);
+            //return sqlite3_open_v2(db_file.c_str(), &sqdb, SQLITE_OPEN_READWRITE, NULL);
+			return sqlite3_open(db_file.c_str(), &sqdb);
         }
         
         SQLITE_API int SQLITE_STDCALL
         create_table_if_not_exists() {
-            if (access(db_file.c_str(), 00) == -1) {
-                FILE *file = fopen(db_file.c_str(), "a");
-                fclose(file);
+			auto err = SQLXX_FILE_ACCESS(db_file.c_str(), 00);
+            if (err == SQLXX_FILE_ENOENT) {
+                SQLXX_FILE_CREATE(db_file.c_str(), "a");
             }
             
             std::string sqlcmd("CREATE TABLE IF NOT EXISTS ");
@@ -528,7 +529,7 @@ namespace sqlite_tool {
             }
 
             sqlite3_stmt *stmt = nullptr;
-            SQLITE_API int SQLITE_STDCALL prep_err = sqlite3_prepare_v2(sqdb, sqlcmd.c_str(), int(sqlcmd.size()), &stmt, NULL);
+            SQLITE_API int SQLITE_STDCALL prep_err = sqlite3_prepare_v2(sqdb, sqlcmd.c_str(), int(-1), &stmt, NULL);
             if (prep_err != SQLITE_OK) {
                 return prep_err;
             }
@@ -609,7 +610,7 @@ namespace sqlite_tool {
         bind_column_index_transfer(const std::pair<std::string, T> &pair, size_t &index) {
             return std::make_pair(index++, pair.second);
         }
-        
+
     public:
         template<typename COLTP, typename...VALTP>
         SQLITE_API int SQLITE_STDCALL
@@ -622,7 +623,7 @@ namespace sqlite_tool {
             std::string sqlcmd("INSERT INTO ");
             sqlcmd.append(table);
             sqlcmd.append("(");
-            insert_command_prepare_name(sqlcmd, std::forward<std::pair<COLTP, VALTP>>(pair)...);
+            insert_command_prepare_name(sqlcmd, pair...);
             sqlcmd.append(") VALUES(");
             //insert_command_prepare_value(sqlcmd, std::forward<std::pair<COLTP, VALTP>>(pair)...);
             insert_command_prepare_value(sqlcmd, bind_column_index_transfer_to_name(pair)...);
@@ -641,7 +642,7 @@ namespace sqlite_tool {
                 return prep_err;
             }
             
-            SQLITE_API int SQLITE_STDCALL bind_err = bind_utility::bind_value(stmt, std::forward<std::pair<std::string, VALTP>>(bind_column_index_transfer_to_name(pair))...);
+            SQLITE_API int SQLITE_STDCALL bind_err = bind_utility::bind_value(stmt, bind_column_index_transfer_to_name(pair)...);
             if (bind_err != SQLITE_OK) {
                 sqlite3_clear_bindings(stmt);
                 sqlite3_finalize(stmt);
