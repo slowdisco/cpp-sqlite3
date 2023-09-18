@@ -1,6 +1,6 @@
 # cpp-sqlite3
 
-使用c++对sqlite3的简单封装。
+
 
     //初始化sqlite3_delegate对象，模板参数为数据库表每列的数据类型(column type)
 
